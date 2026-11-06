@@ -12,6 +12,16 @@ export class CartPage {
     await expect(this.page).toHaveURL(/\/checkout\/cart\/?(\?.*)?$/);
   }
 
+  /**
+   * The cart page opens an Extend "protect your mattress" dialog a moment after load
+   * (third-party script). It covers the whole page, so decline it before checking the cart.
+   */
+  async declineProtectionPlan() {
+    const offer = this.page.getByRole('dialog').filter({ has: this.page.getByRole('button', { name: 'Add Protection' }) });
+    await offer.getByRole('button', { name: 'No Thanks' }).click();
+    await expect(offer).toBeHidden();
+  }
+
   async expectOnlyItem({ name, size, quantity }: { name: string; size: string; quantity: number }) {
     await expect(this.items).toHaveCount(1);
     const item = this.item(name);

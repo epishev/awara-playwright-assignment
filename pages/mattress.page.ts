@@ -86,9 +86,8 @@ export class MattressPage {
   /**
    * Adds to cart by clicking only, and declines the "Upgrade to Certified Organic"
    * dialog, which makes the site save the item and open the cart page. The test proves
-   * the save from the cart contents, not from network traffic. The cart page also opens
-   * an Extend protection-plan dialog, loaded late by a third-party script. The cart
-   * assertions do not need it closed, so it is left alone.
+   * the save from the cart contents, not from network traffic. The cart page then opens
+   * an Extend protection-plan dialog, which CartPage.declineProtectionPlan() closes.
    */
   async addToCart() {
     await expect(this.sizeSelect).toHaveText(this.selectedSizeText);

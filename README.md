@@ -107,22 +107,32 @@ playwright.config.ts               "ui" and "api" projects
 
 ## Known application defect (handled in the test)
 
-On the product page, a size chosen within about 2 s of page load is silently reset to Queen, because the page keeps
+On the product page, a size chosen while the page is still loading is silently reset to Queen, because the page keeps
 re-pricing the cart and its last request resets the size. The cart then receives the wrong size. The UI shows no sign of this.
-`MattressPage.selectSize` first waits until the page's pricing requests (`/carts/quote`, `/api/products`, `/applicable-offers`)
-have been quiet for 1 s. `networkidle` was tried and is not reliable here, so it is not used.
+Locally the re-pricing takes about 2 s; on a slow runner the requests were spread over about 15 s with gaps of up to about 3.3 s.
+`MattressPage.selectSize` therefore waits until the page's pricing requests (`/carts/quote`, `/api/products`, `/applicable-offers`)
+have been quiet for 3.5 s, selects the size, waits for quiet again, and checks the size is still selected (choosing again if not).
+`networkidle` was tried and is not reliable here, so it is not used.
 
 ## Verification status
 
-Observed on a developer machine (macOS, Node 24, Playwright 1.65, Chromium):
+**Local run** (macOS, Node 24, Playwright 1.65, Chromium):
 
 - `npm run typecheck` passes.
-- `npm run test:ui` passes. It passed 30 of 30 consecutive repeats after the final changes, and `npm run test:ui -- --repeat-each=3` passed 3 of 3.
-- `npm test` ran both projects: the UI test passed and both API tests failed.
+- `npm run test:ui` passes: 30 of 30 repeats with the first version of the size wait, and 5 of 5 after it was made more robust.
+- `npm run test:api` fails: both tests get HTTP 403.
 
-**API tests: not verified.** From that machine, Playwright's `request` client gets HTTP 403 (a Cloudflare "you have been blocked" HTML page)
-for both endpoints, with or without the `E2EUI-Tests` User-Agent. The same URLs return 200 JSON when opened as a browser navigation,
-which is how the response shape above was confirmed. No workaround was attempted for the block. Whether the tests pass depends on the
-network running them, for example a GitHub Actions runner. This file does not claim they pass.
+**GitHub Actions** (private repo, `ubuntu-latest`): typecheck, install, and artifact upload work, but `npm test` fails on every run so far:
 
-GitHub Actions: the workflow has not been run (see delivery notes in the submission).
+- Both API tests get HTTP 403 from `api.qa-env.residenthome.com`.
+- The UI test fails at "Add to Cart". The trace shows that every request the page makes to `api.qa-env.residenthome.com`
+  (carts, users, quote, and the add-to-cart POST) fails with `net::ERR_FAILED`, while the site itself, its media and third-party scripts load fine.
+
+**Cause (environment, not the test code):** the QA API is behind Cloudflare, which answers "you have been blocked" to both Playwright's
+request client and the browser's cross-origin calls from these networks (a developer machine for the API tests, a GitHub-hosted runner
+for the API tests and for the UI cart calls). The same API URLs return 200 JSON when opened directly in a browser on the developer machine,
+which is how the response shape above was confirmed. No workaround (header spoofing, proxying or mocking) was attempted, so the red CI
+status is left as it is.
+
+**What would fix it:** ask the owner of the QA environment to allow the GitHub runner IPs or a CI header, or run the suite on a
+self-hosted runner or machine that is allowed. The workflow needs no other change.

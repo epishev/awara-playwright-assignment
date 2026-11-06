@@ -6,13 +6,14 @@ const isCI = !!process.env.CI;
 
 export default defineConfig({
   testDir: './tests',
+  globalSetup: './global-setup.ts',
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 1 : 0,
   workers: isCI ? 2 : undefined,
   timeout: 120_000,
   expect: { timeout: 15_000 },
-  reporter: [['list'], ['html', { open: 'never' }]],
+  reporter: [['list'], ['html', { open: 'never' }], ['allure-playwright', { detail: false }]],
   use: {
     actionTimeout: 30_000,
     navigationTimeout: 60_000,

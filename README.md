@@ -12,7 +12,7 @@ The tests never go to checkout and never place an order.
 
 ## Prerequisites
 
-Node.js 20 or newer (developed on Node 24, CI uses Node 24) and npm.
+Node.js 22.18 or newer (required by the Allure command-line tool; developed on Node 24, CI uses Node 24) and npm.
 
 ## Install
 
@@ -33,7 +33,8 @@ On a bare Linux machine also install the browser's system libraries: `npx playwr
 | `npm run test:headed` | UI tests in a visible browser |
 | `npm run test:debug` | UI tests in Playwright Inspector debug mode |
 | `npm run typecheck` | `tsc --noEmit` with strict mode |
-| `npm run report` | Open the last HTML report |
+| `npm run report:allure` | Build the Allure report from the last run and open it |
+| `npm run report` | Open the last Playwright HTML report |
 
 Base URLs default to the assignment values and can be overridden:
 
@@ -48,21 +49,26 @@ UI_BASE_URL=https://example.test npm run test:ui
 
 ## Reports
 
-Every run writes an HTML report to `playwright-report/` and prints a list in the terminal.
+Every run writes Allure results to `allure-results/` and a Playwright HTML report to `playwright-report/`, and prints a list in the terminal.
 Failures keep a screenshot and a trace in `test-results/`.
 
 ```bash
-npm run report                                        # open the HTML report
+npm run report:allure                                 # build the Allure report and open it
+npm run report                                        # open the Playwright HTML report
 npx playwright show-trace test-results/<test-folder>/trace.zip   # open one saved trace
 ```
+
+The Allure report is a single file, `allure-report/index.html`, which also opens with a double-click. It shows the readable `test.step`
+journey of each test, and `allure-results/` is cleared at the start of each run, so it covers only the latest run. For every browser and
+API call, use the Playwright report or the trace.
 
 ## GitHub Actions
 
 `.github/workflows/playwright.yml` runs on every push, every pull request and manually (`workflow_dispatch`).
-It installs dependencies, installs Chromium, type-checks, runs `npm test`, and uploads two artifacts
-(kept for 14 days, uploaded even when tests fail): `playwright-report` and `test-results`.
-To read them, open the workflow run on GitHub, scroll to **Artifacts**, download and unzip `playwright-report`,
-then open `index.html` (or run `npx playwright show-report <unzipped-folder>`). Unzip `test-results` to get traces.
+It installs dependencies, installs Chromium, type-checks, runs `npm test`, generates the Allure report, and uploads three artifacts
+(kept for 14 days, uploaded even when tests fail): `allure-report`, `playwright-report` and `test-results`.
+To read them, open the workflow run on GitHub, scroll to **Artifacts**, download and unzip `allure-report`, then open `index.html`.
+For the Playwright report, unzip `playwright-report` and run `npx playwright show-report <unzipped-folder>`. Unzip `test-results` to get traces.
 
 ## Structure
 
@@ -77,7 +83,9 @@ fixtures/api.fixture.ts            provides productsController to the API tests
 fixtures/ui.fixture.ts             provides the page objects and popup cookies to the UI test
 tests/ui/mattress-cart.spec.ts     UI scenario (one test per size, test.step phases)
 tests/api/products.spec.ts         two independent API tests (productsController fixture)
-playwright.config.ts               "ui" and "api" projects
+playwright.config.ts               "ui" and "api" projects, reporters
+global-setup.ts                    clears old Allure results before each run
+allurerc.mjs                       Allure report settings
 ```
 
 ## Key decisions
@@ -145,7 +153,7 @@ have been quiet for 3.5 s, selects the size, waits for quiet again, and checks t
 - `npm run test:ui` passes: 21 of 21 tests with each of the 7 sizes run 3 times, and 7 of 7 with 2 workers as on CI.
 - `npm run test:api` fails: both tests get HTTP 403.
 
-**GitHub Actions** (private repo, `ubuntu-latest`): typecheck, install, and artifact upload work, but `npm test` fails on every run so far:
+**GitHub Actions** (public repo, `ubuntu-latest`): typecheck, install, and artifact upload work, but `npm test` fails on every run so far:
 
 - Both API tests get HTTP 403 from `api.qa-env.residenthome.com`.
 - The UI test fails at "Add to Cart". The trace shows that every request the page makes to `api.qa-env.residenthome.com`

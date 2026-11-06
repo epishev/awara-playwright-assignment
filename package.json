@@ -5,7 +5,7 @@
   "description": "Playwright UI and API tests for the QA Automation Engineer home assignment",
   "license": "ISC",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.18"
   },
   "scripts": {
     "test": "playwright test",
@@ -14,12 +14,16 @@
     "test:headed": "playwright test --project=ui --headed",
     "test:debug": "playwright test --project=ui --debug",
     "typecheck": "tsc --noEmit",
-    "report": "playwright show-report"
+    "report": "playwright show-report",
+    "report:allure": "allure generate allure-results --clean --open",
+    "report:allure:generate": "allure generate allure-results --clean"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.0",
     "@types/node": "^26.6.6",
     "ajv": "^8.20.0",
+    "allure": "^3.33.0",
+    "allure-playwright": "^3.14.0",
     "typescript": "^7.0.2"
   }
 }

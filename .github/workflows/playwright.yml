@@ -11,7 +11,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
 
@@ -27,6 +27,19 @@ jobs:
       - run: npm run typecheck
 
       - run: npm test
+
+      - name: Generate Allure report
+        if: ${{ !cancelled() }}
+        run: npm run report:allure:generate
+
+      - name: Upload Allure report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: allure-report
+          path: allure-report/
+          retention-days: 14
+          if-no-files-found: ignore
 
       - name: Upload Playwright report
         if: ${{ !cancelled() }}

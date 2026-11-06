@@ -1,45 +1,37 @@
-import { expect, test } from '@playwright/test';
-import { CartPage } from '../../pages/cart.page';
-import { HomePage } from '../../pages/home.page';
-import { MattressPage } from '../../pages/mattress.page';
+import { test } from '../../fixtures/ui.fixture';
 
-test('visitor adds a mattress from the Hero Banner to the cart', async ({ page }) => {
-  const home = new HomePage(page);
-  const mattress = new MattressPage(page);
-  const cart = new CartPage(page);
-  const size = 'King';
+const sizes = ['Twin', 'Twin XL', 'Full', 'Queen', 'King', 'Cal King', 'Split King'];
 
-  await test.step('Open the homepage', async () => {
-    const response = await home.goto();
-    expect(response.status()).toBe(200);
-    await expect(home.heading).toBeVisible();
-    await expect(home.heroShopMattressLink).toBeVisible();
-    await home.dismissOverlays();
+test.describe('Adding a mattress to the cart', () => {
+  test.beforeAll(async ({ expectSiteToBeUp }) => {
+    await expectSiteToBeUp();
   });
 
-  await test.step('Click "Shop Mattress" on the Hero Banner', async () => {
-    await home.clickHeroShopMattress();
-    // The assignment expects /mattress, but the Hero Banner link points to this
-    // product page (see README, "Assumptions and discrepancies").
-    await expect(page).toHaveURL(/\/mattresses\/essential-latex-hybrid-mattress\/?(\?.*)?$/);
-    await expect(mattress.title).toBeVisible();
-    await expect(mattress.addToCartButton).toBeVisible();
+  test.beforeEach(async ({ homePage, mattressPage }) => {
+    await test.step('Open the homepage', async () => {
+      await homePage.open();
+      await homePage.expectToBeOpen();
+    });
+
+    await test.step('Click "Shop Mattress" on the Hero Banner', async () => {
+      await homePage.clickHeroShopMattress();
+      await mattressPage.expectToBeOpen();
+    });
   });
 
-  let productName = '';
-  await test.step('Select a size and add the mattress to the cart', async () => {
-    productName = await mattress.productName();
-    expect(productName).not.toBe('');
-    await mattress.selectSize(size);
-    await mattress.addToCart();
-  });
+  for (const size of sizes) {
+    test(`visitor adds a ${size} mattress from the Hero Banner to the cart`, async ({ mattressPage, cartPage }) => {
+      const mattressName = await mattressPage.getProductName();
 
-  await test.step('Verify the cart contains the selected mattress', async () => {
-    await expect(page).toHaveURL(/\/checkout\/cart\/?(\?.*)?$/);
-    await expect(cart.items).toHaveCount(1);
-    const item = cart.item(productName);
-    await expect(item).toContainText(productName);
-    await expect(item.getByTestId('checkout_Size')).toHaveText(`Size: ${size}`);
-    await expect(item.getByTestId('quantity_number')).toHaveText('1');
-  });
+      await test.step(`Choose size ${size} and add the mattress to the cart`, async () => {
+        await mattressPage.selectSize(size);
+        await mattressPage.addToCart();
+      });
+
+      await test.step('Check that the cart contains only the chosen mattress', async () => {
+        await cartPage.expectToBeOpen();
+        await cartPage.expectOnlyItem({ name: mattressName, size, quantity: 1 });
+      });
+    });
+  }
 });

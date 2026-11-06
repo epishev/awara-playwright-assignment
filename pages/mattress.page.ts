@@ -7,9 +7,9 @@ const PRICING_REQUEST = /\/carts\/quote|\/api\/products|\/applicable-offers/;
 const QUIET_MS = 3_500;
 
 export class MattressPage {
-  readonly title: Locator;
-  readonly sizeSelect: Locator;
-  readonly addToCartButton: Locator;
+  private readonly title: Locator;
+  private readonly sizeSelect: Locator;
+  private readonly addToCartButton: Locator;
 
   private inFlight = 0;
   private lastPricingActivity = Date.now();
@@ -20,7 +20,8 @@ export class MattressPage {
     this.sizeSelect = page.getByTestId('add_to_cart_property_selector_size');
     this.addToCartButton = page.getByRole('button', { name: 'Add to Cart', exact: true });
 
-    // Create this page object before navigating so no request is missed.
+    // This page object must exist before the test navigates, or requests are missed.
+    // The fixture guarantees that when the test asks for mattressPage.
     const onStart = (url: string) => {
       if (!PRICING_REQUEST.test(url)) return;
       this.inFlight++;
@@ -36,8 +37,18 @@ export class MattressPage {
     page.on('requestfailed', (request) => onEnd(request.url()));
   }
 
-  async productName() {
-    return (await this.title.innerText()).trim();
+  async expectToBeOpen() {
+    // The assignment expects /mattress, but the Hero Banner link points to this
+    // product page (see README, "Discrepancies with the assignment").
+    await expect(this.page).toHaveURL(/\/mattresses\/essential-latex-hybrid-mattress\/?(\?.*)?$/);
+    await expect(this.title).toBeVisible();
+    await expect(this.addToCartButton).toBeVisible();
+  }
+
+  async getProductName() {
+    const name = (await this.title.innerText()).trim();
+    expect(name, 'the product should have a name').not.toBe('');
+    return name;
   }
 
   async selectSize(size: string) {
@@ -50,8 +61,9 @@ export class MattressPage {
     await expect(async () => {
       await this.waitForPricingToSettle();
       await this.sizeSelect.click();
-      // Option names look like "King(Total Value $1,809)$999", hence the prefix match.
-      const option = this.page.getByRole('option', { name: new RegExp(`^${size}\\b`) });
+      // Option names look like "Twin XL(Total Value $1,041)$749". Match up to the bracket
+      // or price, because a plain prefix match would make "Twin" also match "Twin XL".
+      const option = this.page.getByRole('option', { name: new RegExp(`^${size}\\s*[($]`) });
       this.selectedSizeText = ((await option.textContent()) ?? '').trim();
       await option.click();
       // The label changes first; the price follows once the size is applied.
@@ -72,24 +84,24 @@ export class MattressPage {
   }
 
   /**
-   * Adds to cart and declines the "Upgrade to Certified Organic" dialog, which then
-   * navigates to the cart page. The cart page also opens an Extend protection-plan
-   * dialog, loaded late by a third-party script. The cart assertions do not need it
-   * closed, so it is left alone instead of making the test depend on it.
+   * Adds to cart by clicking only, and declines the "Upgrade to Certified Organic"
+   * dialog, which makes the site save the item and open the cart page. The test proves
+   * the save from the cart contents, not from network traffic. The cart page also opens
+   * an Extend protection-plan dialog, loaded late by a third-party script. The cart
+   * assertions do not need it closed, so it is left alone.
    */
   async addToCart() {
     await expect(this.sizeSelect).toHaveText(this.selectedSizeText);
     await this.addToCartButton.click();
 
-    // The item is saved by a POST that the site sends when the upsell dialog is
-    // answered, and it navigates to the cart right after. Register the wait before
-    // clicking and require success, so the cart page is never opened before the save.
     const upsell = this.page.getByRole('dialog').filter({ hasText: 'Upgrade to Certified Organic' });
-    const saved = this.page.waitForResponse(
-      (response) => response.request().method() === 'POST' && response.url().includes('/carts/my/items'),
-    );
     await upsell.getByRole('button', { name: 'No Thanks' }).click();
-    const response = await saved;
-    expect(response.status(), 'adding the item to the cart should succeed').toBe(200);
+
+    // Split King only: a notice says it ships as two Twin XL mattresses, and the cart
+    // opens only from its button. No "if visible" check, so losing this step fails the test.
+    if (this.selectedSizeText.startsWith('Split King')) {
+      const notice = this.page.getByRole('dialog').filter({ hasText: 'Please Note' });
+      await notice.getByRole('button', { name: 'Proceed to Checkout' }).click();
+    }
   }
 }

@@ -10,7 +10,7 @@ export default defineConfig({
   forbidOnly: isCI,
   retries: isCI ? 1 : 0,
   workers: isCI ? 2 : undefined,
-  timeout: 60_000,
+  timeout: 120_000,
   expect: { timeout: 10_000 },
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {

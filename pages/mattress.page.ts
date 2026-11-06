@@ -71,16 +71,25 @@ export class MattressPage {
       .toBe(true);
   }
 
-  /** Adds to cart and declines the two upsell dialogs that follow, which lands on the cart page. */
+  /**
+   * Adds to cart and declines the "Upgrade to Certified Organic" dialog, which then
+   * navigates to the cart page. The cart page also opens an Extend protection-plan
+   * dialog, loaded late by a third-party script. The cart assertions do not need it
+   * closed, so it is left alone instead of making the test depend on it.
+   */
   async addToCart() {
     await expect(this.sizeSelect).toHaveText(this.selectedSizeText);
     await this.addToCartButton.click();
-    await this.declineUpsell('Upgrade to Certified Organic');
-    await this.declineUpsell('Protect your');
-  }
 
-  private async declineUpsell(dialogText: string) {
-    const dialog = this.page.getByRole('dialog').filter({ hasText: dialogText });
-    await dialog.getByRole('button', { name: 'No Thanks' }).click();
+    // The item is saved by a POST that the site sends when the upsell dialog is
+    // answered, and it navigates to the cart right after. Register the wait before
+    // clicking and require success, so the cart page is never opened before the save.
+    const upsell = this.page.getByRole('dialog').filter({ hasText: 'Upgrade to Certified Organic' });
+    const saved = this.page.waitForResponse(
+      (response) => response.request().method() === 'POST' && response.url().includes('/carts/my/items'),
+    );
+    await upsell.getByRole('button', { name: 'No Thanks' }).click();
+    const response = await saved;
+    expect(response.status(), 'adding the item to the cart should succeed').toBe(200);
   }
 }

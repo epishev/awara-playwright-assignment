@@ -86,8 +86,11 @@ playwright.config.ts               "ui" and "api" projects
 - **Proof that the right item was added.** On the cart page the test expects exactly one line item, whose name equals the
   product title captured before adding, whose size line equals `Size: King` (selected explicitly), and whose quantity is `1`.
   A toast or cart badge is never used as evidence.
-- **Cart is a page, not a drawer.** After "Add to Cart" the site shows two upsell dialogs ("Upgrade to Certified Organic",
-  "Protect your ... mattress"), declined with "No Thanks", and then navigates to `/checkout/cart`.
+- **Cart is a page, not a drawer.** After "Add to Cart" the site shows an upsell dialog ("Upgrade to Certified Organic").
+  Answering it with "No Thanks" sends `POST /carts/my/items` and then navigates to `/checkout/cart`. The test registers a wait for that
+  response before clicking and requires status 200, so the cart page is never opened before the item is saved. The cart page then opens
+  an Extend protection-plan dialog, loaded late by a third-party script; the cart assertions use test ids and do not need it closed, so
+  the test ignores it.
 - **Overlays.** A cookie banner (about 2 s after load) and a promo modal (about 7 s) block clicks. The test waits for each and closes it
   with its "Close" button, so no cookie consent is given. They do not come back afterwards.
 - **Waiting for pricing to settle.** See the defect below.
@@ -119,7 +122,7 @@ have been quiet for 3.5 s, selects the size, waits for quiet again, and checks t
 **Local run** (macOS, Node 24, Playwright 1.65, Chromium):
 
 - `npm run typecheck` passes.
-- `npm run test:ui` passes: 30 of 30 repeats with the first version of the size wait, and 5 of 5 after it was made more robust.
+- `npm run test:ui` passes: 12 of 12 consecutive runs after the final changes (two batches of 6).
 - `npm run test:api` fails: both tests get HTTP 403.
 
 **GitHub Actions** (private repo, `ubuntu-latest`): typecheck, install, and artifact upload work, but `npm test` fails on every run so far:

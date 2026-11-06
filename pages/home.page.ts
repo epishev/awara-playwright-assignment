@@ -20,7 +20,8 @@ export class HomePage {
   }
 
   async goto() {
-    const response = await this.page.goto('/');
+    // 'domcontentloaded': the full load event waits for slow third-party content.
+    const response = await this.page.goto('/', { waitUntil: 'domcontentloaded' });
     expect(response, 'homepage navigation should produce a response').not.toBeNull();
     return response!;
   }
@@ -34,7 +35,7 @@ export class HomePage {
    */
   async dismissOverlays() {
     for (const overlay of [this.cookieBanner, this.promoModal]) {
-      await expect(overlay).toBeVisible({ timeout: 20_000 });
+      await expect(overlay).toBeVisible({ timeout: 30_000 });
       await overlay.getByRole('button', { name: 'Close' }).click();
       await expect(overlay).toBeHidden();
     }

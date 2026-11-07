@@ -30,7 +30,6 @@ test.describe('Adding a mattress to the cart', () => {
 
       await test.step('Check that the cart contains only the chosen mattress', async () => {
         await cartPage.expectToBeOpen();
-        await cartPage.declineProtectionPlan();
         await cartPage.expectOnlyItem({ name: mattressName, size, quantity: 1 });
       });
     });

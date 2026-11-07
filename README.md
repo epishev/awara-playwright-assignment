@@ -156,18 +156,20 @@ have been quiet for 3.5 s, selects the size, waits for quiet again, and checks t
 **GitHub Actions** (public repo, `ubuntu-latest`): typecheck, install, and artifact upload work, but `npm test` fails on every run so far:
 
 - Both API tests get HTTP 403 from `api.qa-env.residenthome.com`.
-- The UI test fails at "Add to Cart". The trace shows that every request the page makes to `api.qa-env.residenthome.com`
-  (carts, users, quote, and the add-to-cart POST) fails with `net::ERR_FAILED`, while the site itself, its media and third-party scripts load fine.
+- The UI tests fail around "Add to Cart". In the traces of run 42297326584, 118 of the 138 requests the page made to
+  `api.qa-env.residenthome.com` (carts, users, quote, and the add-to-cart POST) failed with `net::ERR_FAILED`, and the save got through on only 2 of 14
+  attempts, while the site itself, its media and third-party scripts load fine. Chromium's console reports that the CORS preflight response has no
+  `Access-Control-Allow-Origin` header. The upsell dialog depends on those calls, so it usually never opens, which shows up as a timeout on its "No Thanks" button.
 
 **Local reproduction:** blocking `api.qa-env.residenthome.com` in the browser on a developer machine gives a matching result: the add-to-cart
 POST fails with `net::ERR_FAILED`, the upsell dialog never appears, the site does not open the cart, and the cart page stays on a loading
 spinner. The button itself depends on that API, so changing how the test clicks cannot fix CI.
 
-**Cause (environment, not the test code):** the QA API is behind Cloudflare, which answers "you have been blocked" to both Playwright's
-request client and the browser's cross-origin calls from these networks (a developer machine for the API tests, a GitHub-hosted runner
-for the API tests and for the UI cart calls). The same API URLs return 200 JSON when opened directly in a browser on the developer machine,
-which is how the response shape above was confirmed. No workaround (header spoofing, proxying or mocking) was attempted, so the red CI
-status is left as it is.
+**Cause (environment, not the test code):** the QA API is behind Cloudflare, which answers "you have been blocked" to Playwright's request
+client from a developer machine and from a GitHub-hosted runner. On a runner the browser's preflights to the same API are also mostly rejected,
+and on a developer machine they are not. Traces do not record preflight responses, so a Cloudflare block is the likely cause for those but is not
+confirmed. The same API URLs return 200 JSON when opened directly in a browser on the developer machine, which is how the response shape above
+was confirmed. No workaround (header spoofing, proxying or mocking) was attempted, so the red CI status is left as it is.
 
 **What would fix it:** ask the owner of the QA environment to allow the GitHub runner IPs or a CI header, or run the suite on a
 self-hosted runner or machine that is allowed. The workflow needs no other change.
